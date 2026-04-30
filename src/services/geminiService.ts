@@ -15,14 +15,16 @@ export async function askStudyBuddy(question: string) {
 
 export async function generateInnovationIdeas(domain: string, resumeProfile?: any) {
   const prompt = resumeProfile 
-    ? `Generate 5 innovative project ideas for the domain: ${domain}, specifically tailored for a student with this profile: ${JSON.stringify(resumeProfile)}.`
-    : `Generate 5 innovative project ideas for the domain: ${domain}.`;
+    ? `Generate 30 innovative and unique project ideas for the domain: ${domain}, specifically tailored for a student with this profile: ${JSON.stringify(resumeProfile)}. 
+       Ensure the ideas range from beginner to advanced levels. Each idea should be a concise, one-sentence description.`
+    : `Generate 30 innovative and unique project ideas for the domain: ${domain}. 
+       Ensure the ideas range from beginner to advanced levels. Each idea should be a concise, one-sentence description.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: prompt,
     config: {
-      systemInstruction: "You are an Innovation Idea Generator. Provide a list of 5 unique and practical project ideas for BTech students. Return ONLY a JSON array of strings.",
+      systemInstruction: "You are an Innovation Idea Generator. Provide an exhaustive list of 30 unique, creative, and practical project ideas for BTech students. Return ONLY a JSON array of strings containing the ideas.",
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.ARRAY,
@@ -49,14 +51,51 @@ export async function generateStudyPlan(resumeProfile: any) {
 }
 
 export async function generateCareerRoadmap(resumeProfile: any) {
+  const prompt = `Based on this resume profile: ${JSON.stringify(resumeProfile)}, generate a structured 12-month career roadmap.
+  Divide it into 4 quarters (Q1, Q2, Q3, Q4).
+  For each quarter, provide:
+  - theme: A concise focus (e.g., "Foundation & Skills", "Advanced Projects").
+  - activities: 3 specific, actionable goals.
+  - milestone: A major achievement for that quarter.
+  - icon: Choose from "Code", "Brain", "Briefcase", "Send", "Award", "Target", "Search", "Users".
+
+  Return ONLY a JSON object with a "roadmap" array of 4 objects.`;
+
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Based on this resume profile: ${JSON.stringify(resumeProfile)}, generate a detailed career roadmap for the next 12 months. Include certifications to pursue, project types to build, and networking strategies.`,
+    contents: prompt,
     config: {
-      systemInstruction: "You are a Senior Career Strategist. Provide a structured 12-month career roadmap in Markdown format. Break it down into quarterly milestones (Q1-Q4). Focus on high-impact actions that will lead to a top-tier engineering role.",
+      systemInstruction: "You are a Career Architect. Provide a structured 12-month roadmap in JSON format. Use clear, high-impact language.",
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          roadmap: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                quarter: { type: Type.STRING },
+                theme: { type: Type.STRING },
+                activities: { type: Type.ARRAY, items: { type: Type.STRING } },
+                milestone: { type: Type.STRING },
+                icon: { type: Type.STRING }
+              },
+              required: ["quarter", "theme", "activities", "milestone", "icon"]
+            }
+          }
+        },
+        required: ["roadmap"]
+      }
     },
   });
-  return response.text;
+  
+  try {
+    const data = JSON.parse(response.text || "{}");
+    return data.roadmap;
+  } catch (e) {
+    return [];
+  }
 }
 
 export async function analyzeResumePDF(pdfBase64: string) {
@@ -136,6 +175,43 @@ export async function recommendJobs(skills: string, resumeProfile: any) {
             matchDetails: { type: Type.STRING }
           },
           required: ["title", "description", "companies", "matchPercentage", "matchDetails"]
+        }
+      }
+    },
+  });
+  try {
+    return JSON.parse(response.text || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function getNearbyJobs(location: string, resumeProfile?: any) {
+  const prompt = resumeProfile 
+    ? `Find relevant job opportunities for a BTech student with this profile: ${JSON.stringify(resumeProfile)} in the location: ${location}. 
+       Focus on local companies, tech hubs, or remote roles common in this region. 
+       Recommend 6 specific job titles with local context.`
+    : `Recommend 6 specific job opportunities for a tech enthusiast in: ${location}. 
+       Include job titles, typical companies in that region, and estimated salary ranges.`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: prompt,
+    config: {
+      systemInstruction: "You are a Local Placement Assistant. Provide 6 realistic job opportunities in the specified location. For each, include title, company, description, matchDifficulty (Beginner, Intermediate, Advanced), and locationSnippet (short local context). Return ONLY a JSON array of objects.",
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            company: { type: Type.STRING },
+            description: { type: Type.STRING },
+            matchDifficulty: { type: Type.STRING },
+            locationSnippet: { type: Type.STRING }
+          },
+          required: ["title", "company", "description", "matchDifficulty", "locationSnippet"]
         }
       }
     },

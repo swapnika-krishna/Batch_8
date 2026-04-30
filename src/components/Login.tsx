@@ -12,6 +12,90 @@ import {
 } from '../lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
+function MovingBackground() {
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+      <motion.div
+        animate={{
+          scale: [1, 1.2, 1],
+          x: [0, 100, 0],
+          y: [0, 50, 0],
+        }}
+        transition={{
+          duration: 20,
+          repeat: Infinity,
+          ease: "linear"
+        }}
+        className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px] dark:bg-primary/10"
+      />
+      <motion.div
+        animate={{
+          scale: [1.2, 1, 1.2],
+          x: [0, -100, 0],
+          y: [0, -50, 0],
+        }}
+        transition={{
+          duration: 25,
+          repeat: Infinity,
+          ease: "linear"
+        }}
+        className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/20 rounded-full blur-[120px] dark:bg-secondary/10"
+      />
+      <motion.div
+        animate={{
+          scale: [1, 1.5, 1],
+          x: [0, 50, 0],
+          y: [0, -100, 0],
+        }}
+        transition={{
+          duration: 30,
+          repeat: Infinity,
+          ease: "linear"
+        }}
+        className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-accent/20 rounded-full blur-[120px] dark:bg-accent/10"
+      />
+    </div>
+  );
+}
+
+function FloatingParticles() {
+  const particles = Array.from({ length: 6 });
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+      {particles.map((_, i) => (
+        <motion.div
+          key={i}
+          initial={{ 
+            x: Math.random() * 100 + "%", 
+            y: Math.random() * 100 + "%",
+            opacity: 0 
+          }}
+          animate={{
+            x: [
+              Math.random() * 100 + "%",
+              Math.random() * 100 + "%",
+              Math.random() * 100 + "%"
+            ],
+            y: [
+              Math.random() * 100 + "%",
+              Math.random() * 100 + "%",
+              Math.random() * 100 + "%"
+            ],
+            rotate: [0, 180, 360],
+            opacity: [0, 0.1, 0]
+          }}
+          transition={{
+            duration: 15 + Math.random() * 15,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute w-32 h-32 bg-primary/10 rounded-full blur-3xl"
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +159,12 @@ export default function Login() {
       let message = 'An error occurred during authentication.';
       if (err.code === 'auth/user-not-found') message = 'No account found with this email.';
       else if (err.code === 'auth/wrong-password') message = 'Incorrect password.';
-      else if (err.code === 'auth/email-already-in-use') message = 'Email is already registered.';
+      else if (err.code === 'auth/email-already-in-use') {
+        message = 'This email is already registered. Please sign in instead of creating a new account.';
+        setIsSignUp(false); // Automatically switch to Sign In mode for convenience
+      }
       else if (err.code === 'auth/weak-password') message = 'Password should be at least 6 characters.';
+      else if (err.code === 'auth/operation-not-allowed') message = 'Email/Password sign-in is not enabled in Firebase Console. Please enable it in the Authentication tab.';
       else message = err.message;
       
       setError(message);
@@ -86,12 +174,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden transition-colors duration-300">
+      <MovingBackground />
+      <FloatingParticles />
       {/* Background Decorations */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary/10 rounded-full blur-3xl opacity-50" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-accent/10 rounded-full blur-3xl opacity-50" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://picsum.photos/seed/nebula/1920/1080')] opacity-5 mix-blend-overlay grayscale" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://picsum.photos/seed/nebula/1920/1080')] opacity-[0.03] mix-blend-overlay grayscale" />
       </div>
 
       <motion.div 
@@ -99,7 +187,7 @@ export default function Login() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="bg-card border-2 border-primary/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl shadow-primary/5 backdrop-blur-sm bg-card/80">
+        <div className="bg-card/40 border-2 border-primary/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl shadow-primary/5 backdrop-blur-xl">
           {/* Logo & Header */}
           <div className="text-center space-y-3 mb-8">
             <motion.div 

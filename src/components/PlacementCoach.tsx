@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { FileText, Upload, Building2, CheckCircle2, AlertCircle, Loader2, BarChart3, Sparkles, FileUp, X, ChevronRight, TrendingUp, Map } from 'lucide-react';
+import { FileText, Upload, Building2, CheckCircle2, AlertCircle, Loader2, BarChart3, Sparkles, FileUp, X, ChevronRight, TrendingUp, Map, Target } from 'lucide-react';
 import { analyzeResumePDF, generateCareerRoadmap } from '../services/geminiService';
 import { motion, AnimatePresence } from 'motion/react';
-import ReactMarkdown from 'react-markdown';
+import PlacementRoadmap from './PlacementRoadmap';
 import { db, auth, handleFirestoreError } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 
@@ -15,7 +15,7 @@ export default function PlacementCoach({ onUploadSuccess }: PlacementCoachProps)
   const [result, setResult] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [roadmap, setRoadmap] = useState<string | null>(null);
+  const [roadmap, setRoadmap] = useState<any[] | null>(null);
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -263,23 +263,34 @@ export default function PlacementCoach({ onUploadSuccess }: PlacementCoachProps)
 
             {roadmap && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-card border rounded-2xl p-8 shadow-lg relative overflow-hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-12"
               >
-                <div className="absolute top-0 right-0 p-8 opacity-5">
-                  <Map className="w-32 h-32" />
+                <div className="text-center space-y-4">
+                  <h3 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Your 12-Month Success Map</h3>
+                  <p className="text-muted-foreground max-w-2xl mx-auto">A strategic, data-driven journey tailored to bridge your skill gaps and land your dream role.</p>
                 </div>
-                <div className="relative z-10 space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Map className="w-6 h-6 text-primary" />
-                    </div>
-                    <h3 className="text-xl font-bold">Your Personalized Career Roadmap</h3>
+                
+                <PlacementRoadmap roadmap={roadmap} />
+                
+                <div className="bg-primary/5 border border-primary/20 rounded-3xl p-8 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+                  <div className="p-4 bg-primary/10 rounded-2xl">
+                    <Target className="w-10 h-10 text-primary" />
                   </div>
-                  <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:mb-4 prose-headings:mt-8 first:prose-headings:mt-0">
-                    <ReactMarkdown>{roadmap}</ReactMarkdown>
+                  <div className="flex-1">
+                    <h4 className="text-xl font-bold mb-2">Ready to take the first step?</h4>
+                    <p className="text-muted-foreground">Follow this roadmap consistently to see a significant improvement in your placement readiness Score.</p>
                   </div>
+                  <button 
+                    onClick={() => {
+                      const event = new CustomEvent('changeTab', { detail: 'study' });
+                      window.dispatchEvent(event);
+                    }}
+                    className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                  >
+                    Start Q1 Prep
+                  </button>
                 </div>
               </motion.div>
             )}

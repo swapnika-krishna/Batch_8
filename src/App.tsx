@@ -1,16 +1,294 @@
 import React, { useState, useEffect } from 'react';
 import { GraduationCap, BookOpen, Lightbulb, Briefcase, Menu, X, Moon, Sun, Search, ChevronRight, LogOut, User as UserIcon, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useSpring, useTransform } from 'motion/react';
 import StudyBuddy from './components/StudyBuddy';
 import IdeaGenerator from './components/IdeaGenerator';
 import PlacementCoach from './components/PlacementCoach';
 import JobAnalyzer from './components/JobAnalyzer';
+import NearbyJobs from './components/NearbyJobs';
 import Login from './components/Login';
 import { cn } from './lib/utils';
 import { auth, onAuthStateChanged, signOut, User, db, UserProfile, handleFirestoreError } from './lib/firebase';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 
-type Tab = 'home' | 'study' | 'ideas' | 'placement' | 'jobs';
+function MovingBackground() {
+  const { scrollYProgress } = useScroll();
+  const y1 = useTransform(scrollYProgress, [0, 1], [0, 200]);
+  const y2 = useTransform(scrollYProgress, [0, 1], [0, -200]);
+  const y3 = useTransform(scrollYProgress, [0, 1], [0, 100]);
+
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+      <motion.div
+        style={{ y: y1 }}
+        animate={{
+          scale: [1, 1.2, 1],
+          x: [0, 100, 0],
+        }}
+        transition={{
+          duration: 20,
+          repeat: Infinity,
+          ease: "linear"
+        }}
+        className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px] dark:bg-primary/10"
+      />
+      <motion.div
+        style={{ y: y2 }}
+        animate={{
+          scale: [1.2, 1, 1.2],
+          x: [0, -100, 0],
+        }}
+        transition={{
+          duration: 25,
+          repeat: Infinity,
+          ease: "linear"
+        }}
+        className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/20 rounded-full blur-[120px] dark:bg-secondary/10"
+      />
+      <motion.div
+        style={{ y: y3 }}
+        animate={{
+          scale: [1, 1.5, 1],
+          x: [0, 50, 0],
+        }}
+        transition={{
+          duration: 30,
+          repeat: Infinity,
+          ease: "linear"
+        }}
+        className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-accent/20 rounded-full blur-[120px] dark:bg-accent/10"
+      />
+    </div>
+  );
+}
+
+function InteractiveGradients({ mousePos }: { mousePos: { x: number; y: number } }) {
+  return (
+    <div className="fixed inset-0 -z-20 overflow-hidden pointer-events-none opacity-40">
+      <motion.div 
+        animate={{ 
+          x: mousePos.x * 20, 
+          y: mousePos.y * 20,
+          scale: [1, 1.1, 1],
+        }}
+        transition={{ duration: 10, repeat: Infinity }}
+        className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-[40%_60%_70%_30%/40%_50%_60%_50%] blur-[120px]"
+      />
+      <motion.div 
+        animate={{ 
+          x: -mousePos.x * 30, 
+          y: -mousePos.y * 30,
+          scale: [1, 1.2, 1],
+        }}
+        transition={{ duration: 15, repeat: Infinity }}
+        className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-accent/10 rounded-[70%_30%_50%_50%/30%_30%_70%_70%] blur-[150px]"
+      />
+      <motion.div 
+        animate={{ 
+          x: mousePos.x * -15, 
+          y: mousePos.y * 40,
+        }}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px]"
+      />
+    </div>
+  );
+}
+
+function CursorTrail({ mousePos }: { mousePos: { x: number; y: number } }) {
+  const [trail, setTrail] = useState<{ x: number, y: number, id: number }[]>([]);
+  
+  useEffect(() => {
+    const newPoint = { x: mousePos.x, y: mousePos.y, id: Date.now() };
+    setTrail(prev => [...prev.slice(-20), newPoint]);
+  }, [mousePos]);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[60]">
+      {trail.map((point, i) => (
+        <motion.div
+          key={point.id}
+          initial={{ opacity: 0.8, scale: 1 }}
+          animate={{ opacity: 0, scale: 0.2 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="absolute w-2 h-2 bg-primary/40 rounded-full blur-[1px]"
+          style={{
+            left: `calc(50% + ${point.x * 50}px)`,
+            top: `calc(50% + ${point.y * 50}px)`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Magnetic({ children }: { children: React.ReactNode }) {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  const handleMouse = (e: MouseEvent) => {
+    if (!ref.current) return;
+    const { clientX, clientY } = e;
+    const { left, top, width, height } = ref.current.getBoundingClientRect();
+    const centerX = left + width / 2;
+    const centerY = top + height / 2;
+    const distanceX = clientX - centerX;
+    const distanceY = clientY - centerY;
+
+    if (Math.abs(distanceX) < 100 && Math.abs(distanceY) < 100) {
+      setPosition({ x: distanceX * 0.2, y: distanceY * 0.2 });
+    } else {
+      setPosition({ x: 0, y: 0 });
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener("mousemove", handleMouse);
+    return () => window.removeEventListener("mousemove", handleMouse);
+  }, []);
+
+  const { x, y } = position;
+  return (
+    <motion.div
+      ref={ref}
+      animate={{ x, y }}
+      transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function RisingLines({ mousePos }: { mousePos: { x: number; y: number } }) {
+  const lines = Array.from({ length: 15 });
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none opacity-20">
+      {lines.map((_, i) => (
+        <motion.div
+          key={i}
+          initial={{ 
+            x: Math.random() * 100 + "%", 
+            y: "110%",
+            height: Math.random() * 80 + 20,
+            width: "1px"
+          }}
+          animate={{
+            y: ["110%", "-20%"],
+          }}
+          style={{
+            translateX: mousePos.x * (i % 5 + 5),
+          }}
+          transition={{
+            duration: 10 + Math.random() * 15,
+            repeat: Infinity,
+            ease: "linear",
+            delay: Math.random() * 10
+          }}
+          className="absolute bg-primary"
+        />
+      ))}
+    </div>
+  );
+}
+
+function FloatingParticles({ mousePos }: { mousePos: { x: number; y: number } }) {
+  const particles = Array.from({ length: 25 });
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+      {particles.map((_, i) => {
+        const size = Math.random() * 4 + 1;
+        return (
+          <motion.div
+            key={i}
+            initial={{ 
+              x: Math.random() * 100 + "%", 
+              y: Math.random() * 100 + "%",
+              opacity: 0 
+            }}
+            animate={{
+              x: [
+                Math.random() * 100 + "%",
+                Math.random() * 100 + "%",
+              ],
+              y: [
+                Math.random() * 100 + "%",
+                Math.random() * 100 + "%",
+              ],
+              opacity: [0, 0.4, 0],
+              scale: [0, size, 0]
+            }}
+            style={{
+              translateX: mousePos.x * (i % 10 + 2),
+              translateY: mousePos.y * (i % 10 + 2),
+              width: size,
+              height: size,
+            }}
+            transition={{
+              duration: 10 + Math.random() * 20,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute bg-primary rounded-full"
+          />
+        );
+      })}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(var(--primary),0.1),transparent)]" />
+    </div>
+  );
+}
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.15,
+      delayChildren: 0.2
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { y: 40, opacity: 0, rotateX: -15, scale: 0.95 },
+  visible: { 
+    y: 0, 
+    opacity: 1, 
+    rotateX: 0, 
+    scale: 1,
+    transition: {
+      type: "spring" as const,
+      damping: 20,
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const floatingAnimation = {
+  y: [0, -10, 0],
+  transition: {
+    duration: 5,
+    repeat: Infinity,
+    ease: "easeInOut" as const
+  }
+};
+
+type Tab = 'home' | 'study' | 'ideas' | 'placement' | 'jobs' | 'nearby';
+
+function ScrollProgress() {
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    restDelta: 0.001
+  });
+
+  return (
+    <motion.div
+      className="fixed top-0 left-0 right-0 h-1 bg-primary z-[60] origin-left"
+      style={{ scaleX }}
+    />
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -85,12 +363,21 @@ export default function App() {
     }
   };
 
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const { clientX, clientY } = e;
+    const moveX = (clientX - window.innerWidth / 2) / 50;
+    const moveY = (clientY - window.innerHeight / 2) / 50;
+    setMousePos({ x: moveX, y: moveY });
+  };
+
   const navItems = [
     { id: 'home', label: 'Home', icon: GraduationCap },
     { id: 'study', label: 'Study Buddy', icon: BookOpen, protected: true },
     { id: 'ideas', label: 'Innovation', icon: Lightbulb, protected: true },
     { id: 'placement', label: 'Placement', icon: Briefcase },
     { id: 'jobs', label: 'Analyze Jobs', icon: Search, protected: true },
+    { id: 'nearby', label: 'Nearby', icon: Search, protected: true },
   ];
 
   const renderLockedState = (title: string) => (
@@ -134,23 +421,34 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
+    <div 
+      onMouseMove={handleMouseMove}
+      className="min-h-screen bg-transparent text-foreground transition-colors duration-300 relative selection:bg-primary/30"
+    >
+      <ScrollProgress />
+      <MovingBackground />
+      <InteractiveGradients mousePos={mousePos} />
+      <RisingLines mousePos={mousePos} />
+      <FloatingParticles mousePos={mousePos} />
+      <CursorTrail mousePos={mousePos} />
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
+      <nav className="sticky top-0 z-50 bg-background/60 backdrop-blur-xl border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <div 
-              className="flex items-center gap-2 cursor-pointer group"
-              onClick={() => setActiveTab('home')}
-            >
-              <div className="p-1.5 bg-primary rounded-lg text-primary-foreground group-hover:scale-110 transition-transform">
-                <GraduationCap className="w-6 h-6" />
+            <Magnetic>
+              <div 
+                className="flex items-center gap-2 cursor-pointer group"
+                onClick={() => setActiveTab('home')}
+              >
+                <div className="p-1.5 bg-primary rounded-lg text-primary-foreground group-hover:scale-110 transition-transform">
+                  <GraduationCap className="w-6 h-6" />
+                </div>
+                <span className="text-xl font-display font-bold tracking-tight">SkillNova</span>
               </div>
-              <span className="text-xl font-display font-bold tracking-tight">SkillNova</span>
-            </div>
+            </Magnetic>
 
             {/* Desktop Nav */}
-            <div className="hidden md:flex items-center gap-0">
+            <div className="hidden md:flex items-center gap-1 p-1 bg-muted/30 rounded-full backdrop-blur-sm border border-border/50">
               {navItems.map((item) => (
                 <button
                   key={item.id}
@@ -158,32 +456,41 @@ export default function App() {
                   className={cn(
                     "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 relative",
                     activeTab === item.id 
-                      ? "bg-primary text-primary-foreground shadow-sm scale-110 z-10" 
-                      : "hover:bg-muted text-muted-foreground hover:text-foreground scale-95"
+                      ? "text-primary-foreground" 
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <item.icon className="w-4 h-4" />
-                  {item.label}
+                  {activeTab === item.id && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className="absolute inset-0 bg-primary rounded-full shadow-lg shadow-primary/20"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-2">
+                    <item.icon className="w-4 h-4" />
+                    {item.label}
+                  </span>
                   {item.protected && !isResumeUploaded && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full border-2 border-background" />
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full border-2 border-background z-20" />
                   )}
                 </button>
               ))}
-              <div className="ml-4 pl-4 border-l flex items-center gap-2">
+              <div className="ml-2 pl-2 border-l border-border/50 flex items-center gap-1">
                 <button
                   onClick={toggleTheme}
-                  className="p-2 rounded-full hover:bg-muted transition-colors"
+                  className="p-2 rounded-full hover:bg-muted transition-colors relative group"
                 >
                   {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                  <span className="absolute inset-0 rounded-full bg-primary/10 scale-0 group-hover:scale-100 transition-transform" />
                 </button>
                 {user && (
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                    className="p-2 text-destructive hover:bg-destructive/10 rounded-full transition-all group"
                     title="Sign Out"
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span>Logout</span>
+                    <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   </button>
                 )}
               </div>
@@ -212,15 +519,18 @@ export default function App() {
           {isMenuOpen && (
             <motion.div
               key="mobile-menu"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden border-t bg-background"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="md:hidden border-t bg-background/95 backdrop-blur-xl"
             >
               <div className="px-4 py-4 space-y-2">
-                {navItems.map((item) => (
-                  <button
+                {navItems.map((item, i) => (
+                  <motion.button
                     key={item.id}
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: i * 0.1 }}
                     onClick={() => {
                       setActiveTab(item.id as Tab);
                       setIsMenuOpen(false);
@@ -228,8 +538,8 @@ export default function App() {
                     className={cn(
                       "w-full px-4 py-3 rounded-xl text-left text-sm font-medium flex items-center justify-between transition-all",
                       activeTab === item.id 
-                        ? "bg-primary text-primary-foreground scale-[1.05] z-10" 
-                        : "hover:bg-muted text-muted-foreground scale-100"
+                        ? "bg-primary text-primary-foreground scale-[1.02]" 
+                        : "hover:bg-muted text-muted-foreground"
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -241,15 +551,18 @@ export default function App() {
                         Locked
                       </span>
                     )}
-                  </button>
+                  </motion.button>
                 ))}
-                <button
+                <motion.button
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: navItems.length * 0.1 }}
                   onClick={handleLogout}
                   className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium flex items-center gap-3 text-destructive hover:bg-destructive/10 transition-all font-bold"
                 >
                   <LogOut className="w-5 h-5" />
                   Logout
-                </button>
+                </motion.button>
               </div>
             </motion.div>
           )}
@@ -262,63 +575,114 @@ export default function App() {
           {activeTab === 'home' && (
             <motion.div
               key="home"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
               exit={{ opacity: 0, y: -20 }}
               className="space-y-12"
             >
-              <div className="relative max-w-4xl mx-auto mb-24">
+              <motion.div 
+                animate={{ 
+                  rotateX: -mousePos.y, 
+                  rotateY: mousePos.x 
+                }}
+                transition={{ type: "spring", stiffness: 100, damping: 20 }}
+                className="relative max-w-4xl mx-auto mb-24 perspective-1000"
+              >
                 <div className="absolute inset-0 bg-primary/5 -rotate-2 rounded-[2rem] translate-x-2 translate-y-2" />
-                <div className="relative bg-card border-2 border-primary/10 rounded-[2rem] p-10 md:p-24 shadow-2xl overflow-hidden">
+                <motion.div 
+                  variants={itemVariants}
+                  className="relative bg-card/50 backdrop-blur-xl border-2 border-primary/10 rounded-[2rem] p-10 md:p-24 shadow-2xl overflow-hidden shadow-primary/10"
+                >
                   <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
                   <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
                   
                   <div className="relative z-10 text-center space-y-6">
-                    <h1 className="text-4xl md:text-7xl font-display font-bold tracking-tight leading-tight">
-                      Empowering <span className="text-primary">BTech Students</span> with AI
-                    </h1>
-                    <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+                    <motion.h1 
+                      variants={containerVariants}
+                      className="text-4xl md:text-7xl font-display font-bold tracking-tight leading-tight"
+                    >
+                      {"Empowering BTech Students with AI".split(" ").map((word, i) => (
+                        <motion.span
+                          key={i}
+                          variants={{
+                            hidden: { y: 20, opacity: 0 },
+                            visible: { y: 0, opacity: 1 }
+                          }}
+                          className="inline-block mr-3"
+                        >
+                          {word === "BTech" || word === "Students" ? (
+                            <span className="text-primary bg-primary/5 px-3 rounded-2xl border border-primary/10">{word}</span>
+                          ) : word}
+                        </motion.span>
+                      ))}
+                    </motion.h1>
+                    <motion.p 
+                      variants={itemVariants}
+                      className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto"
+                    >
                       A unified ecosystem designed to accelerate your learning, spark innovation, and boost your career prospects.
-                    </p>
+                    </motion.p>
+                    <motion.div variants={itemVariants} className="pt-4 flex justify-center">
+                      <Magnetic>
+                        <button 
+                          onClick={() => setActiveTab('study')}
+                          className="bg-primary text-primary-foreground px-10 py-4 rounded-full font-bold text-lg hover:opacity-90 transition-all shadow-xl shadow-primary/20 hover:scale-105 active:scale-95"
+                        >
+                          Get Started
+                        </button>
+                      </Magnetic>
+                    </motion.div>
                   </div>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pt-12">
+              <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: "-100px" }}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pt-12"
+              >
                 {[
                   {
                     id: 'study',
                     title: 'AI Study Buddy',
                     desc: 'Get instant academic help and subject-specific tutoring 24/7.',
                     icon: BookOpen,
-                    color: 'bg-primary/10 text-primary',
                   },
                   {
                     id: 'ideas',
                     title: 'Innovation Hub',
                     desc: 'Generate cutting-edge project ideas across 12+ technical domains.',
                     icon: Lightbulb,
-                    color: 'bg-primary/20 text-primary',
                   },
                   {
                     id: 'placement',
                     title: 'Placement Coach',
                     desc: 'Analyze your resume against top companies and bridge skill gaps.',
                     icon: Briefcase,
-                    color: 'bg-primary/15 text-primary',
                   },
                   {
                     id: 'jobs',
                     title: 'Analyze Jobs',
                     desc: 'Find the best career paths based on your current skills.',
                     icon: Search,
-                    color: 'bg-primary/25 text-primary',
                   },
-                ].map((feature) => (
-                  <button
+                ].map((feature, i) => (
+                  <motion.button
                     key={feature.id}
+                    variants={itemVariants}
+                    whileHover={{ 
+                      scale: 1.02, 
+                      y: -15, 
+                      rotate: i % 2 === 0 ? 0.5 : -0.5,
+                      boxShadow: "0 25px 50px -12px rgba(var(--primary), 0.15)"
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    animate={floatingAnimation}
                     onClick={() => setActiveTab(feature.id as Tab)}
-                    className="group p-8 bg-card border-2 border-transparent hover:border-primary/20 rounded-[2.5rem] text-left hover:shadow-2xl hover:shadow-primary/5 transition-all relative overflow-hidden"
+                    className="group p-8 bg-card/40 backdrop-blur-lg border-2 border-transparent hover:border-primary/20 rounded-[2.5rem] text-left hover:shadow-2xl transition-all relative overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors" />
                     
@@ -328,12 +692,12 @@ export default function App() {
                     </div>
                     <h3 className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors">{feature.title}</h3>
                     <p className="text-muted-foreground text-base leading-relaxed">{feature.desc}</p>
-                    <div className="mt-6 flex items-center gap-2 text-primary font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="mt-6 flex items-center gap-2 text-primary font-bold text-sm opacity-0 group-hover:opacity-100 translate-x-[-10px] group-hover:translate-x-0 transition-all">
                       Explore Feature <ChevronRight className="w-4 h-4" />
                     </div>
-                  </button>
+                  </motion.button>
                 ))}
-              </div>
+              </motion.div>
 
               <div className="bg-primary/5 border-2 border-primary/10 rounded-3xl p-8 md:p-16 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
                 <div className="absolute top-0 left-0 -ml-12 -mt-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
@@ -414,6 +778,17 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.95 }}
             >
               {isResumeUploaded ? <JobAnalyzer resumeAnalysis={resumeAnalysis} /> : renderLockedState('Job Analyzer')}
+            </motion.div>
+          )}
+
+          {activeTab === 'nearby' && (
+            <motion.div
+              key="nearby"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              {isResumeUploaded ? <NearbyJobs resumeAnalysis={resumeAnalysis} /> : renderLockedState('Nearby Jobs')}
             </motion.div>
           )}
         </AnimatePresence>
