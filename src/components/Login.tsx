@@ -1,16 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GraduationCap, LogIn, Loader2, Sparkles, AlertCircle, Mail, Lock, User as UserIcon, ArrowRight } from 'lucide-react';
-import { 
-  auth, 
-  googleProvider, 
-  signInWithPopup, 
-  db, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
-  updateProfile 
-} from '../lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { UnifiedBackground, CursorTrail } from './AnimatedBackground';
 
 export default function Login() {
@@ -31,49 +21,22 @@ export default function Login() {
     setMousePos({ x: moveX, y: moveY });
   };
 
-  const syncUserToFirestore = async (user: any, name?: string) => {
-    // Non-blocking sync to permit faster login
-    const performSync = async () => {
-      try {
-        const userDocRef = doc(db, 'users', user.uid);
-        // Use a background check to see if user exists
-        const userDoc = await getDoc(userDocRef);
-
-        if (!userDoc.exists()) {
-          await setDoc(userDocRef, {
-            uid: user.uid,
-            email: user.email || '',
-            displayName: name || user.displayName || 'User',
-            photoURL: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`,
-            createdAt: serverTimestamp(),
-            isResumeUploaded: false
-          });
-          console.log('User profile created in Firestore');
-        }
-      } catch (err: any) {
-        console.error('Firestore sync error:', err);
-        if (err.message && err.message.includes('permission-denied')) {
-          console.warn('Matches security rules? Check if fields align with firestore.rules');
-        }
-      }
-    };
-
-    // Run in background
-    performSync();
-  };
-
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      await syncUserToFirestore(result.user);
+      // Mock login data
+      const mockUser = {
+        uid: 'mock_google_' + Math.random().toString(36).substr(2, 9),
+        email: 'student@google.com',
+        displayName: 'Google Student',
+        photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=google',
+      };
+      localStorage.setItem('skillnova_mock_user', JSON.stringify(mockUser));
+      window.location.reload(); // Refresh to trigger App state update
     } catch (err: any) {
-      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-after-delay') {
-        return;
-      }
       console.error('Google Login error:', err);
-      setError(err.message || 'Failed to sign in with Google. Please try again.');
+      setError('Failed to sign in. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -86,38 +49,30 @@ export default function Login() {
     setIsLoading(true);
     setError(null);
 
-    const emailToUse = email.trim();
-    const passwordToUse = password;
-
     try {
-      if (isSignUp) {
-        if (!displayName.trim()) throw new Error('Please enter your name');
-        if (passwordToUse.length < 6) throw new Error('Password must be at least 6 characters');
-        
-        const result = await createUserWithEmailAndPassword(auth, emailToUse, passwordToUse);
-        await updateProfile(result.user, { displayName: displayName.trim() });
-        await syncUserToFirestore(result.user, displayName.trim());
-      } else {
-        const result = await signInWithEmailAndPassword(auth, emailToUse, passwordToUse);
-        await syncUserToFirestore(result.user);
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Simple mock validation
+      if (email.length < 5 || !email.includes('@')) {
+        throw new Error('Please enter a valid email address');
       }
+      if (password.length < 4) {
+        throw new Error('Password must be at least 4 characters');
+      }
+
+      // Mock user data
+      const mockUser = {
+        uid: 'mock_email_' + Math.random().toString(36).substr(2, 9),
+        email: email,
+        displayName: displayName || email.split('@')[0],
+        photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+      };
+
+      localStorage.setItem('skillnova_mock_user', JSON.stringify(mockUser));
+      window.location.reload(); // Refresh to trigger App state update
     } catch (err: any) {
-      console.error('Email Auth error:', err);
-      let message = 'An error occurred during authentication.';
-      
-      if (err.code === 'auth/operation-not-allowed') {
-        message = 'Email sign-in is not enabled. Please go to your Firebase Console > Authentication > Sign-in method and enable "Email/Password".';
-      } else if (err.code === 'auth/network-request-failed') {
-        message = 'Network error. Please check your internet connection or Firebase configuration.';
-      } else if (err.code === 'auth/popup-blocked') {
-        message = 'The login popup was blocked. Please allow popups for this site and try again.';
-      } else if (err.message && err.message.includes('permission-denied')) {
-        message = 'Firebase Permission Denied. This usually means Firestore rules are blocking the user profile creation.';
-      } else if (err.message) {
-        message = `Firebase Error: ${err.message}`;
-      }
-      
-      setError(message);
+      setError(err.message || 'An error occurred during authentication.');
     } finally {
       setIsLoading(false);
     }
@@ -275,7 +230,7 @@ export default function Login() {
         </div>
         
         <p className="mt-8 text-center text-[10px] text-muted-foreground opacity-50 px-8 leading-relaxed uppercase font-bold tracking-tighter">
-          By signing in, you agree to our terms of service and academic integrity policies. Secured by Firebase.
+          By signing in, you agree to our terms of service and academic integrity policies.
         </p>
       </motion.div>
     </div>

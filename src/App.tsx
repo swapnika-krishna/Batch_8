@@ -21,8 +21,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence, useScroll, useSpring } from 'motion/react';
 import { cn } from './lib/utils';
-import { auth, onAuthStateChanged, signOut, User, db, UserProfile } from './lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
 import StudyBuddy from './components/StudyBuddy';
 import IdeaGenerator from './components/IdeaGenerator';
 import PlacementCoach from './components/PlacementCoach';
@@ -84,8 +82,15 @@ function ScrollProgress() {
   );
 }
 
+interface SkillNovaUser {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+}
+
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<SkillNovaUser | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -99,56 +104,28 @@ export default function App() {
     document.documentElement.classList.toggle('dark');
   };
 
-  // Auth & Profile Listener
+  // Simplified Local Auth State
   useEffect(() => {
-    let unsubscribeProfile: (() => void) | undefined;
-
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      
-      // Cleanup previous listener
-      if (unsubscribeProfile) {
-        unsubscribeProfile();
-        unsubscribeProfile = undefined;
+    const savedUser = localStorage.getItem('skillnova_mock_user');
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+        // Also load local resume data if available
+        const savedResume = localStorage.getItem('skillnova_mock_resume');
+        if (savedResume) {
+          const data = JSON.parse(savedResume);
+          setIsResumeUploaded(data.isResumeUploaded);
+          setResumeAnalysis(data.resumeAnalysis);
+        }
+      } catch (e) {
+        console.error("Local data parse error", e);
       }
-
-      if (currentUser) {
-        setIsProfileLoading(true);
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        
-        unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data() as UserProfile;
-            setIsResumeUploaded(data.isResumeUploaded || false);
-            setResumeAnalysis(data.resumeAnalysis || null);
-          }
-          setIsProfileLoading(false);
-        }, (error) => {
-          console.error("Profile sync error:", error);
-          setIsProfileLoading(false);
-        });
-
-        // Safety timeout for profile syncing
-        setTimeout(() => setIsProfileLoading(false), 5000);
-      } else {
-        setIsResumeUploaded(false);
-        setResumeAnalysis(null);
-        setIsProfileLoading(false);
-      }
-      
-      setIsAuthReady(true);
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeProfile) unsubscribeProfile();
-    };
-  }, []);
-
-  // Initialize dark mode and handle custom tab change events
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
+    }
     
+    // Auth is "ready" immediately in mock mode
+    setIsAuthReady(true);
+    
+    // Custom tab change events
     const handleTabChange = (e: any) => {
       if (e.detail) setActiveTab(e.detail as Tab);
     };
@@ -157,13 +134,12 @@ export default function App() {
     return () => window.removeEventListener('changeTab', handleTabChange);
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setActiveTab('home');
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('skillnova_mock_user');
+    setUser(null);
+    setActiveTab('home');
+    setIsResumeUploaded(false);
+    setResumeAnalysis(null);
   };
 
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });

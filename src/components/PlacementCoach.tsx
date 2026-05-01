@@ -3,8 +3,6 @@ import { FileText, Upload, Building2, CheckCircle2, AlertCircle, Loader2, BarCha
 import { analyzeResumePDF, generateCareerRoadmap } from '../services/geminiService';
 import { motion, AnimatePresence } from 'motion/react';
 import PlacementRoadmap from './PlacementRoadmap';
-import { db, auth, handleFirestoreError, serverTimestamp } from '../lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
 
 interface PlacementCoachProps {
   onUploadSuccess: (analysis: any) => void;
@@ -46,19 +44,14 @@ export default function PlacementCoach({ onUploadSuccess }: PlacementCoachProps)
           const base64 = (reader.result as string).split(',')[1];
           const analysis = await analyzeResumePDF(base64);
           if (analysis) {
-            // Save to Firestore
-            if (auth.currentUser) {
-              const userDocRef = doc(db, 'users', auth.currentUser.uid);
-              try {
-                await updateDoc(userDocRef, {
-                  isResumeUploaded: true,
-                  resumeAnalysis: analysis,
-                  updatedAt: serverTimestamp()
-                });
-              } catch (err) {
-                handleFirestoreError(err, 'update', `users/${auth.currentUser.uid}`);
-              }
-            }
+            // Save to localStorage for mock persistence
+            const resumeData = {
+              isResumeUploaded: true,
+              resumeAnalysis: analysis,
+              updatedAt: new Date().toISOString()
+            };
+            localStorage.setItem('skillnova_mock_resume', JSON.stringify(resumeData));
+            
             setResult(analysis);
             onUploadSuccess(analysis);
           } else {
