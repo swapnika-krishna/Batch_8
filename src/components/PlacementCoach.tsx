@@ -3,7 +3,7 @@ import { FileText, Upload, Building2, CheckCircle2, AlertCircle, Loader2, BarCha
 import { analyzeResumePDF, generateCareerRoadmap } from '../services/geminiService';
 import { motion, AnimatePresence } from 'motion/react';
 import PlacementRoadmap from './PlacementRoadmap';
-import { db, auth, handleFirestoreError } from '../lib/firebase';
+import { db, auth, handleFirestoreError, serverTimestamp } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 
 interface PlacementCoachProps {
@@ -53,7 +53,7 @@ export default function PlacementCoach({ onUploadSuccess }: PlacementCoachProps)
                 await updateDoc(userDocRef, {
                   isResumeUploaded: true,
                   resumeAnalysis: analysis,
-                  updatedAt: new Date()
+                  updatedAt: serverTimestamp()
                 });
               } catch (err) {
                 handleFirestoreError(err, 'update', `users/${auth.currentUser.uid}`);

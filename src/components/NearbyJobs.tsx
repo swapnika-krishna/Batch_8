@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MapPin, Navigation, Loader2, Search, Briefcase, MapPinOff, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getNearbyJobs } from '../services/geminiService';
+import { cn } from '../lib/utils';
 
 interface NearbyJobsProps {
   resumeAnalysis: any;
@@ -208,8 +209,4 @@ export default function NearbyJobs({ resumeAnalysis }: NearbyJobsProps) {
       </AnimatePresence>
     </div>
   );
-}
-
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(' ');
 }

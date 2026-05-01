@@ -1,241 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { GraduationCap, BookOpen, Lightbulb, Briefcase, Menu, X, Moon, Sun, Search, ChevronRight, LogOut, User as UserIcon, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence, useScroll, useSpring, useTransform } from 'motion/react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { 
+  GraduationCap, 
+  Search, 
+  Menu, 
+  X, 
+  Briefcase, 
+  BookOpen, 
+  Lightbulb,
+  Moon, 
+  Sun, 
+  ChevronRight, 
+  LogOut, 
+  User as UserIcon, 
+  Loader2,
+  Sparkles,
+  Zap,
+  Map,
+  Target,
+  Globe
+} from 'lucide-react';
+import { motion, AnimatePresence, useScroll, useSpring } from 'motion/react';
+import { cn } from './lib/utils';
+import { auth, onAuthStateChanged, signOut, User, db, UserProfile } from './lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import StudyBuddy from './components/StudyBuddy';
 import IdeaGenerator from './components/IdeaGenerator';
 import PlacementCoach from './components/PlacementCoach';
 import JobAnalyzer from './components/JobAnalyzer';
 import NearbyJobs from './components/NearbyJobs';
 import Login from './components/Login';
-import { cn } from './lib/utils';
-import { auth, onAuthStateChanged, signOut, User, db, UserProfile, handleFirestoreError } from './lib/firebase';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
-
-function MovingBackground() {
-  const { scrollYProgress } = useScroll();
-  const y1 = useTransform(scrollYProgress, [0, 1], [0, 200]);
-  const y2 = useTransform(scrollYProgress, [0, 1], [0, -200]);
-  const y3 = useTransform(scrollYProgress, [0, 1], [0, 100]);
-
-  return (
-    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-      <motion.div
-        style={{ y: y1 }}
-        animate={{
-          scale: [1, 1.2, 1],
-          x: [0, 100, 0],
-        }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: "linear"
-        }}
-        className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px] dark:bg-primary/10"
-      />
-      <motion.div
-        style={{ y: y2 }}
-        animate={{
-          scale: [1.2, 1, 1.2],
-          x: [0, -100, 0],
-        }}
-        transition={{
-          duration: 25,
-          repeat: Infinity,
-          ease: "linear"
-        }}
-        className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/20 rounded-full blur-[120px] dark:bg-secondary/10"
-      />
-      <motion.div
-        style={{ y: y3 }}
-        animate={{
-          scale: [1, 1.5, 1],
-          x: [0, 50, 0],
-        }}
-        transition={{
-          duration: 30,
-          repeat: Infinity,
-          ease: "linear"
-        }}
-        className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-accent/20 rounded-full blur-[120px] dark:bg-accent/10"
-      />
-    </div>
-  );
-}
-
-function InteractiveGradients({ mousePos }: { mousePos: { x: number; y: number } }) {
-  return (
-    <div className="fixed inset-0 -z-20 overflow-hidden pointer-events-none opacity-40">
-      <motion.div 
-        animate={{ 
-          x: mousePos.x * 20, 
-          y: mousePos.y * 20,
-          scale: [1, 1.1, 1],
-        }}
-        transition={{ duration: 10, repeat: Infinity }}
-        className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-[40%_60%_70%_30%/40%_50%_60%_50%] blur-[120px]"
-      />
-      <motion.div 
-        animate={{ 
-          x: -mousePos.x * 30, 
-          y: -mousePos.y * 30,
-          scale: [1, 1.2, 1],
-        }}
-        transition={{ duration: 15, repeat: Infinity }}
-        className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-accent/10 rounded-[70%_30%_50%_50%/30%_30%_70%_70%] blur-[150px]"
-      />
-      <motion.div 
-        animate={{ 
-          x: mousePos.x * -15, 
-          y: mousePos.y * 40,
-        }}
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px]"
-      />
-    </div>
-  );
-}
-
-function CursorTrail({ mousePos }: { mousePos: { x: number; y: number } }) {
-  const [trail, setTrail] = useState<{ x: number, y: number, id: number }[]>([]);
-  
-  useEffect(() => {
-    const newPoint = { x: mousePos.x, y: mousePos.y, id: Date.now() };
-    setTrail(prev => [...prev.slice(-20), newPoint]);
-  }, [mousePos]);
-
-  return (
-    <div className="fixed inset-0 pointer-events-none z-[60]">
-      {trail.map((point, i) => (
-        <motion.div
-          key={point.id}
-          initial={{ opacity: 0.8, scale: 1 }}
-          animate={{ opacity: 0, scale: 0.2 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="absolute w-2 h-2 bg-primary/40 rounded-full blur-[1px]"
-          style={{
-            left: `calc(50% + ${point.x * 50}px)`,
-            top: `calc(50% + ${point.y * 50}px)`,
-            transform: 'translate(-50%, -50%)',
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function Magnetic({ children }: { children: React.ReactNode }) {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const ref = React.useRef<HTMLDivElement>(null);
-
-  const handleMouse = (e: MouseEvent) => {
-    if (!ref.current) return;
-    const { clientX, clientY } = e;
-    const { left, top, width, height } = ref.current.getBoundingClientRect();
-    const centerX = left + width / 2;
-    const centerY = top + height / 2;
-    const distanceX = clientX - centerX;
-    const distanceY = clientY - centerY;
-
-    if (Math.abs(distanceX) < 100 && Math.abs(distanceY) < 100) {
-      setPosition({ x: distanceX * 0.2, y: distanceY * 0.2 });
-    } else {
-      setPosition({ x: 0, y: 0 });
-    }
-  };
-
-  useEffect(() => {
-    window.addEventListener("mousemove", handleMouse);
-    return () => window.removeEventListener("mousemove", handleMouse);
-  }, []);
-
-  const { x, y } = position;
-  return (
-    <motion.div
-      ref={ref}
-      animate={{ x, y }}
-      transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-function RisingLines({ mousePos }: { mousePos: { x: number; y: number } }) {
-  const lines = Array.from({ length: 15 });
-  return (
-    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none opacity-20">
-      {lines.map((_, i) => (
-        <motion.div
-          key={i}
-          initial={{ 
-            x: Math.random() * 100 + "%", 
-            y: "110%",
-            height: Math.random() * 80 + 20,
-            width: "1px"
-          }}
-          animate={{
-            y: ["110%", "-20%"],
-          }}
-          style={{
-            translateX: mousePos.x * (i % 5 + 5),
-          }}
-          transition={{
-            duration: 10 + Math.random() * 15,
-            repeat: Infinity,
-            ease: "linear",
-            delay: Math.random() * 10
-          }}
-          className="absolute bg-primary"
-        />
-      ))}
-    </div>
-  );
-}
-
-function FloatingParticles({ mousePos }: { mousePos: { x: number; y: number } }) {
-  const particles = Array.from({ length: 25 });
-  return (
-    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-      {particles.map((_, i) => {
-        const size = Math.random() * 4 + 1;
-        return (
-          <motion.div
-            key={i}
-            initial={{ 
-              x: Math.random() * 100 + "%", 
-              y: Math.random() * 100 + "%",
-              opacity: 0 
-            }}
-            animate={{
-              x: [
-                Math.random() * 100 + "%",
-                Math.random() * 100 + "%",
-              ],
-              y: [
-                Math.random() * 100 + "%",
-                Math.random() * 100 + "%",
-              ],
-              opacity: [0, 0.4, 0],
-              scale: [0, size, 0]
-            }}
-            style={{
-              translateX: mousePos.x * (i % 10 + 2),
-              translateY: mousePos.y * (i % 10 + 2),
-              width: size,
-              height: size,
-            }}
-            transition={{
-              duration: 10 + Math.random() * 20,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="absolute bg-primary rounded-full"
-          />
-        );
-      })}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(var(--primary),0.1),transparent)]" />
-    </div>
-  );
-}
+import { UnifiedBackground, CursorTrail, Magnetic } from './components/AnimatedBackground';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -312,6 +106,12 @@ export default function App() {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       
+      // Cleanup previous listener
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = undefined;
+      }
+
       if (currentUser) {
         setIsProfileLoading(true);
         const userDocRef = doc(db, 'users', currentUser.uid);
@@ -327,10 +127,13 @@ export default function App() {
           console.error("Profile sync error:", error);
           setIsProfileLoading(false);
         });
+
+        // Safety timeout for profile syncing
+        setTimeout(() => setIsProfileLoading(false), 5000);
       } else {
         setIsResumeUploaded(false);
         setResumeAnalysis(null);
-        if (unsubscribeProfile) unsubscribeProfile();
+        setIsProfileLoading(false);
       }
       
       setIsAuthReady(true);
@@ -410,7 +213,7 @@ export default function App() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-10 h-10 text-primary animate-spin" />
-          <p className="text-sm font-medium animate-pulse">Syncing SkillNova...</p>
+          <p className="text-sm font-medium animate-pulse uppercase tracking-widest opacity-50">Syncing SkillNova...</p>
         </div>
       </div>
     );
@@ -423,13 +226,10 @@ export default function App() {
   return (
     <div 
       onMouseMove={handleMouseMove}
-      className="min-h-screen bg-transparent text-foreground transition-colors duration-300 relative selection:bg-primary/30"
+      className="min-h-screen bg-background text-foreground transition-colors duration-300 relative selection:bg-primary/30"
     >
       <ScrollProgress />
-      <MovingBackground />
-      <InteractiveGradients mousePos={mousePos} />
-      <RisingLines mousePos={mousePos} />
-      <FloatingParticles mousePos={mousePos} />
+      <UnifiedBackground mousePos={mousePos} />
       <CursorTrail mousePos={mousePos} />
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-background/60 backdrop-blur-xl border-b border-border/50">
