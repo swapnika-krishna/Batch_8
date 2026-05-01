@@ -32,24 +32,34 @@ export default function Login() {
   };
 
   const syncUserToFirestore = async (user: any, name?: string) => {
-    try {
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
+    // Non-blocking sync to permit faster login
+    const performSync = async () => {
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        // Use a background check to see if user exists
+        const userDoc = await getDoc(userDocRef);
 
-      if (!userDoc.exists()) {
-        await setDoc(userDocRef, {
-          uid: user.uid,
-          email: user.email,
-          displayName: name || user.displayName || 'User',
-          photoURL: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`,
-          createdAt: serverTimestamp(),
-          isResumeUploaded: false
-        });
+        if (!userDoc.exists()) {
+          await setDoc(userDocRef, {
+            uid: user.uid,
+            email: user.email || '',
+            displayName: name || user.displayName || 'User',
+            photoURL: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`,
+            createdAt: serverTimestamp(),
+            isResumeUploaded: false
+          });
+          console.log('User profile created in Firestore');
+        }
+      } catch (err: any) {
+        console.error('Firestore sync error:', err);
+        if (err.message && err.message.includes('permission-denied')) {
+          console.warn('Matches security rules? Check if fields align with firestore.rules');
+        }
       }
-    } catch (err) {
-      console.error('Firestore sync error:', err);
-      // We don't throw here to avoid blocking login if firestore is down but auth worked
-    }
+    };
+
+    // Run in background
+    performSync();
   };
 
   const handleGoogleLogin = async () => {
