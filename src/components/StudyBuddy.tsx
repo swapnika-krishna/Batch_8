@@ -22,10 +22,13 @@ export default function StudyBuddy({ resumeAnalysis }: StudyBuddyProps) {
 
   useEffect(() => {
     if (resumeAnalysis && messages.length === 0) {
+      const topSkills = (resumeAnalysis.matchedSkills || []).slice(0, 3).join(', ') || 'your core areas';
+      const gapSkills = (resumeAnalysis.missingSkills || []).slice(0, 3).join(', ') || 'new domains';
+      
       setMessages([
         {
           role: 'ai',
-          content: `Hello! I've analyzed your resume. You have strong skills in **${resumeAnalysis.matchedSkills?.slice(0, 3).join(', ')}**. I can help you bridge the gap in **${resumeAnalysis.missingSkills?.slice(0, 3).join(', ')}**. What would you like to study today?`
+          content: `Hello! I've analyzed your resume. You have strong skills in **${topSkills}**. I can help you bridge the gap in **${gapSkills}**. What would you like to study today?`
         }
       ]);
     }
@@ -46,7 +49,12 @@ export default function StudyBuddy({ resumeAnalysis }: StudyBuddyProps) {
     setIsLoading(true);
 
     try {
-      const answer = await askStudyBuddy(userMsg);
+      const history = messages.map(msg => ({
+        role: msg.role === 'user' ? 'user' as const : 'model' as const,
+        parts: [{ text: msg.content }]
+      }));
+      
+      const answer = await askStudyBuddy(userMsg, history);
       setMessages(prev => [...prev, { role: 'ai', content: answer || "I'm sorry, I couldn't process that." }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'ai', content: "Error: Failed to connect to the tutor." }]);

@@ -2,15 +2,21 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-export async function askStudyBuddy(question: string) {
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: question,
-    config: {
-      systemInstruction: "You are AI Study Buddy, a helpful and professional tutor for BTech students. Provide clear, academic, and concise answers to engineering and technical questions.",
-    },
-  });
-  return response.text;
+export async function askStudyBuddy(question: string, history: { role: 'user' | 'model', parts: { text: string }[] }[] = []) {
+  try {
+    const chat = ai.chats.create({
+      model: "gemini-3.1-pro-preview",
+      history: history,
+      config: {
+        systemInstruction: "You are AI Study Buddy, a helpful and professional tutor for BTech students. Provide clear, academic, and concise answers to engineering and technical questions. Use Markdown for formatting.",
+      },
+    });
+    const response = await chat.sendMessage({ message: question });
+    return response.text;
+  } catch (error) {
+    console.error("Error in askStudyBuddy:", error);
+    throw error;
+  }
 }
 
 export async function generateInnovationIdeas(domain: string, resumeProfile?: any) {
@@ -40,14 +46,23 @@ export async function generateInnovationIdeas(domain: string, resumeProfile?: an
 }
 
 export async function generateStudyPlan(resumeProfile: any) {
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: `Based on this resume profile: ${JSON.stringify(resumeProfile)}, generate a personalized 4-week study plan to bridge skill gaps and prepare for top-tier engineering roles.`,
-    config: {
-      systemInstruction: "You are a Career and Academic Mentor. Provide a detailed 4-week study plan in Markdown format. Focus on bridging the 'missingSkills' identified in the profile and strengthening 'matchedSkills'. Be encouraging and professional.",
-    },
-  });
-  return response.text;
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-pro-preview",
+      contents: { 
+        parts: [{ 
+          text: `Based on this resume profile: ${JSON.stringify(resumeProfile)}, generate a personalized 4-week study plan to bridge skill gaps and prepare for top-tier engineering roles.` 
+        }] 
+      },
+      config: {
+        systemInstruction: "You are a Career and Academic Mentor. Provide a detailed 4-week study plan in Markdown format. Focus on bridging the 'missingSkills' identified in the profile and strengthening 'matchedSkills'. Be encouraging and professional.",
+      },
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Error in generateStudyPlan:", error);
+    return null;
+  }
 }
 
 export async function generateCareerRoadmap(resumeProfile: any) {
